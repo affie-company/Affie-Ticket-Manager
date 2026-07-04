@@ -260,6 +260,10 @@ client.on('interactionCreate', async (interaction) => {
                         id: modRole.id,
                         allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory],
                     },
+                    {
+                        id: client.user.id, // The bot itself
+                        allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory, PermissionsBitField.Flags.ManageChannels],
+                    },
                 ],
             });
 
