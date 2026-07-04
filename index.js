@@ -26,9 +26,7 @@ const client = new Client({
 });
 
 // Settings
-const CATEGORY_NAME = '⏤Support & Feedback ⏤⏤⏤';
 const MODERATOR_ROLE_NAME = 'Moderator';
-const TICKET_CHANNEL_NAME = 'create-a-ticket';
 const LOG_CHANNEL_NAME = 'ticket-logs';
 
 client.once('ready', () => {
@@ -44,12 +42,6 @@ client.on('messageCreate', async (message) => {
 
     // !setup command to spawn the ticket dropdown
     if (command === '!setup' && message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-        const ticketChannel = message.guild.channels.cache.find(c => c.name === TICKET_CHANNEL_NAME);
-        
-        if (!ticketChannel) {
-            return message.reply(`Could not find a channel named "${TICKET_CHANNEL_NAME}". Please create it first.`);
-        }
-
         const embed = new EmbedBuilder()
             .setTitle('🎫 Support Tickets')
             .setDescription('Please select the reason for your ticket from the dropdown menu below.')
@@ -82,14 +74,13 @@ client.on('messageCreate', async (message) => {
                     ]),
             );
 
-        await ticketChannel.send({ embeds: [embed], components: [row] });
-        await message.reply(`Setup complete! Sent the ticket dropdown to ${ticketChannel}`);
+        await message.channel.send({ embeds: [embed], components: [row] });
+        await message.delete().catch(() => {}); // Delete the !setup message to keep chat clean
         return;
     }
 
     // Helper checks for moderator commands
-    const category = message.guild.channels.cache.find(c => c.name === CATEGORY_NAME && c.type === ChannelType.GuildCategory);
-    const inTicketChannel = category && message.channel.parentId === category.id;
+    const inTicketChannel = message.channel.name.startsWith('ticket-');
     
     const modRole = message.guild.roles.cache.find(r => r.name === MODERATOR_ROLE_NAME);
     const isModerator = modRole && (message.member.roles.cache.has(modRole.id) || message.member.permissions.has(PermissionsBitField.Flags.Administrator));
@@ -215,11 +206,8 @@ client.on('interactionCreate', async (interaction) => {
         const selectedValue = interaction.values[0];
         const guild = interaction.guild;
         
-        // Find category
-        const category = guild.channels.cache.find(c => c.name === CATEGORY_NAME && c.type === ChannelType.GuildCategory);
-        if (!category) {
-            return interaction.reply({ content: `Could not find the category "${CATEGORY_NAME}". Please ask an admin to create it.`, ephemeral: true });
-        }
+        // Use the category of the channel where the button was clicked
+        const parentCategoryId = interaction.channel.parentId;
 
         // Find moderator role
         const modRole = guild.roles.cache.find(r => r.name === MODERATOR_ROLE_NAME);
@@ -234,7 +222,7 @@ client.on('interactionCreate', async (interaction) => {
         // Check if user already has an open ticket (including claimed ones like ticket-user-mod)
         const existingChannel = guild.channels.cache.find(c => 
             c.name.startsWith(`ticket-${baseUsername}`) && 
-            c.parentId === category.id
+            c.parentId === parentCategoryId
         );
         
         if (existingChannel) {
@@ -246,7 +234,7 @@ client.on('interactionCreate', async (interaction) => {
             const ticketChannel = await guild.channels.create({
                 name: ticketName,
                 type: ChannelType.GuildText,
-                parent: category.id,
+                parent: parentCategoryId,
                 permissionOverwrites: [
                     {
                         id: guild.id, // @everyone
